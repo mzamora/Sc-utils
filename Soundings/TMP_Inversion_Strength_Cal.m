@@ -5,6 +5,7 @@ function [DT_max,numofInv,varargout]=TMP_Inversion_Strength_Cal_V1(T,hght,hght_s
 % hght: height (unit: km) of 1 dimension (z)
 % hght_sfc: terrain height (unit: m) of 1 dimension (z)
 % Written by Xiaohui Zhong, SRAF UCSD http://solar.ucsd.edu
+% Modified my Monica Zamora
 
 %Convert ground elevation from m to km.
 hght_sfc=hght_sfc./1000;
@@ -277,6 +278,17 @@ if nargout>=6
     varargout{2}=hght_base;    
     varargout{3}=eta_top;
     varargout{4}=eta_base;
+end
+
+
+%% Checking inversion top height with 2nd order derivative
+z=hght;  
+dTdz=diff(T)./diff(z);
+dT2dz=diff(dTdz)./diff(z(1:end-1));
+istar=find((abs(diff(dT2dz))>max(dT2dz/20))==1,1,'last');
+hght_top2=z(istar);
+if hght_top2<hght_top
+    varargout{1}=hght_top2;
 end
 
 end

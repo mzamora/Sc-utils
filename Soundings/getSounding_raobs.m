@@ -1,6 +1,7 @@
 function [p z tp td RH w winddir windspeed theta]=getSounding(date_i)
 % [p z tp td RH w winddir windspeed theta theta_e theta_v]=getSounding(date_i)
 % Get sounding variables below 3km, skipping mandatory levels. 
+% Written by Monica Zamora at SRAF (UCSD), 2017
 
     
     %% Load yearly netcdf file (obtained from https://ruc.noaa.gov/raobs/ )

@@ -69,5 +69,12 @@ for i=1:length(VarList) %go through the indices we want to delete
     varargout{i}(idelete)=[];
 end
 
+%% Sanity check: Remove all rows with nan values
+for j=1:length(ListofVar) %go through all variables
+    f=isnan(varargout{j}); %find nans 
+    for i=1:length(ListofVar)
+        varargout{i}(f)=[]; %remove nan rows everywhere
+    end
+end
 
 end

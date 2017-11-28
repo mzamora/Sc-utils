@@ -43,9 +43,8 @@ for i=1:size(PSFC,1)
         %clapeyron equation.
         %The returned values of e_s are in hPa.
         e_s=[];
-        e_s=clausius_clapeyron(TSK(i,j));
-        %Convert e_s from hPa to Pa.
-        e_s=e_s*100;
+        tc=TSK(i,j)-273.15;
+        e_s=610.94*exp(17.652*tc/(tc+243.04));
        
         %Calculate P_d (dry partial pressure) in Pa.
         PSFC_d=[];

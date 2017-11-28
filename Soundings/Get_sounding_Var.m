@@ -60,7 +60,7 @@ p=varargout{1}; tp=varargout{3};
 idelete=[];
 for pman=[925 850 700] %go through the low mandatory levels (except for the surface)
     istar=find(p==pman); 
-    if (tp(istar)==tp(istar+1))||(tp(istar)==tp(istar-1)) %the temp is the same up or down
+    if (tp(istar)==tp(istar+1))|(tp(istar)==tp(istar-1)) %the temp is the same up or down
         idelete=[idelete, istar]; %add this index to the ones to be deleted
     end
 end

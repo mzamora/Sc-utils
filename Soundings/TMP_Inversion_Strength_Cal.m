@@ -274,24 +274,26 @@ end
 
 
 %% Checking inversion top height with DTDz<5
-z=hght;  
-dTdz=diff(T)./diff(z);
-istar=eta_base+find(dTdz(eta_base+1:eta_top+1)<5,1,'first');
-hght_top2=z(istar);
-if hght_top2<hght_top
-    hght_top=hght_top2;
-    eta_top=istar;
-    DT_max=T(eta_top)-T(eta_base);
-    if DT_max<3
-        %The inversion is not strong enough to be called inversion
-        %here.
-        eta_top=NaN;
-        eta_base=NaN;
-        hght_top=NaN;
-        hght_base=NaN;
-    end      
-end  
-
+try
+    z=hght;  
+    dTdz=diff(T)./diff(z);
+    istar=eta_base+find(dTdz(eta_base+1:eta_top+1)<5,1,'first');
+    hght_top2=z(istar);
+    if hght_top2<hght_top
+        hght_top=hght_top2;
+        eta_top=istar;
+        DT_max=T(eta_top)-T(eta_base);
+        if DT_max<3
+            %The inversion is not strong enough to be called inversion
+            %here.
+            eta_top=NaN;
+            eta_base=NaN;
+            hght_top=NaN;
+            hght_base=NaN;
+        end      
+    end  
+catch
+end
 %% Output variables
 if nargout>=6
     varargout{1}=hght_top;

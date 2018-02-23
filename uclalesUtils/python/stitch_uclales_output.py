@@ -28,7 +28,7 @@ xm_all = []
 ym_all = []
 for x in range(nx):
     for y in range(ny):
-        filename = output_prefix+'.'+str(x).zfill(4)+str(y).zfill(4)+'.nc' #filename from each processor
+        filename = file_dir+output_prefix+'.'+str(x).zfill(4)+str(y).zfill(4)+'.nc' #filename from each processor
         current = Dataset(filename)
         for i in range(len(variables)):
             domain_var[variables[i]][:,y*y_pts:y*y_pts+y_pts,x*x_pts:x*x_pts+x_pts,:] = current[variables[i]][:,:,:,:]
@@ -41,7 +41,7 @@ x = sorted(np.unique(np.array(xm_all))) #get x grids from processors
 y = sorted(np.unique(np.array(ym_all))) #get y grids from processors
 time = np.arange(1,t_pts+1)
 
-root_grp = Dataset(output_prefix+'_stitched1.nc', 'w')
+root_grp = Dataset(output_dir+output_prefix+'_stitched1.nc', 'w')
 root_grp.description = 'Stitched from 8 different processors'
 
 # dimensions

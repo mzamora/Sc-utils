@@ -62,11 +62,11 @@ for t_index in range(60):
         vertical_var_ud = np.array(vertical_var_ud) #list to array
         domain_var = np.array(domain_var) #list to array
         zcoord = z/current_zstar #current z scaled by current PBL height
-        domain_var = np.interp(np.arange(0,1.01,0.01),zcoord,domain_var)
-        vertical_var = np.interp(np.arange(0,1.01,0.01),zcoord,vertical_var)
-        vertical_var_ud = np.interp(np.arange(0,1.01,0.01),zcoord,vertical_var_ud)
+        domain_var = np.interp(np.arange(0,1.21,0.01),zcoord,domain_var)
+        vertical_var = np.interp(np.arange(0,1.21,0.01),zcoord,vertical_var)
+        vertical_var_ud = np.interp(np.arange(0,1.21,0.01),zcoord,vertical_var_ud)
         if flag:
-            output = pd.DataFrame(domain_var,index=np.arange(0,1.01,0.01),columns=['domain_'+plume_vars[vc]])
+            output = pd.DataFrame(domain_var,index=np.arange(0,1.21,0.01),columns=['domain_'+plume_vars[vc]])
             output['updraft_'+plume_vars[vc]] = vertical_var_ud
             output['downdraft_'+plume_vars[vc]] = vertical_var
             flag = False

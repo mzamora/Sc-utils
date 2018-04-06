@@ -15,14 +15,14 @@ from netCDF4 import Dataset
 import seaborn as sns #just to make plots look nicer, optional
 sns.set(style='ticks',font_scale=1.2)
 '''Configure here'''
-file_dir = '/home/elynn/Documents/uclales/NKX_mz/hr_3_4_1min/'
-reducets_name = 'nkxfullradlong2.ts.nc'
-run_stitched_file = 'nkxfullradlong2_stitched.nc'
+file_dir = '/home/elynn/Documents/uclales/ASTEX/hr_3_4_1min/'
+reducets_name = 'astx40.ts.nc'
+run_stitched_file = 'astx40_stitched.nc'
 run_time_res = 60. #LES time resolution
 run_startTime = 10860. #LES start time
 run_endTime = 14400. #LES end time
 z_scale = 'zi2_bar'
-output_dir = '/home/elynn/Documents/uclales/NKX_mz/hr_3_4_1min/plume_output/zi2_bar_5percent_plume/'
+output_dir = file_dir+'plume_output/zi2_bar_5percent_plume/'
 '''End configuration'''
 
 '''Read time statistic file and stitched LES file'''
@@ -85,10 +85,13 @@ for t_index in range(len(ts_LES)):
 '''plotting function'''
 def plot_hourly_avg_vert_profile(plume_vars,output_dir):
     xlabels = [r'$\theta_l$ [K]',r'$q_T$ [g/kg]',r'$q_l$ [g/kg]',r'$w$ [m/s]']
-    xlimits = [[291.0,291.4],[10.4,10.9],[-0.01,0.6],[-2.0,2.0]] #NKX MZ
+#    xlimits = [[291.0,291.4],[10.4,10.9],[-0.01,0.6],[-2.0,2.0]] #NKX MZ
+#    xlimits = [[289.0,289.6],[8.5,9.5],[-0.01,0.5],[-2.0,2.0]] #RF01 reg
+#    xlimits = [[288.2,288.7],[9.0,10.0],[-0.01,0.7],[-2.0,2.0]] #CGILS S12 ctl
+    xlimits = [[287.8,288.8],[10.,11.2],[-0.01,1.0],[-1.5,1.5]] #ASTEX
     flag = True
     for t_index in range(1,61):
-        current = pd.read_csv(output_dir+'Vertical_profile_at_time_'+str(t_index)+'.csv',index_col=0) 
+        current = pd.read_csv(output_dir+'Quadrant_filter_vertical_profile_at_time_'+str(t_index)+'.csv',index_col=0) 
         if flag:
             output = current
             flag = False

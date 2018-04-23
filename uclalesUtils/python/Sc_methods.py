@@ -55,7 +55,7 @@ def holtslag_Moeng_91(wstar,ustar,zstar,z):
 	    sigma_w[i] = 1.3*wstar*((ustar/wstar)**3+0.6*z[i]/zstar)**(1.0/3.0)*(1.0-z[i]/zstar)**(1.0/2.0)
 	return sigma_w
 
-def get_deltaR(rflx,radtype,ps_ncfile,zi,z,inv_top):
+def get_deltaR(rflx,radtype,ps_ncfile,zi,zb,z,inv_top):
 	'''
 	Get total radiative flux jump
 	Parameters
@@ -83,7 +83,8 @@ def get_deltaR(rflx,radtype,ps_ncfile,zi,z,inv_top):
 		else:
 			rad = rad[0,:]
 		BL_idx = np.argmin(np.abs(z/zi-1))
-		delta_R = rad[inv_top] - rad.min()
+		zb_idx = np.argmin(np.abs(z/zb-1))
+		delta_R = rad[inv_top] - rad[zb_idx]#rad.min()
 	return delta_R	
 
 def get_ustar(ps_ncfile,z):

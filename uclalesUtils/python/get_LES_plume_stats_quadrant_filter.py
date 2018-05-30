@@ -1,10 +1,11 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 13 2018
+Created on Tue Apr 5 2018
 @author: elynn
 
 Get updraft/downdraft statistics from UCLALES output
+Adding quadrant analysis to filter out downdraft with positive theta'
 """
 
 import pandas as pd
@@ -14,14 +15,14 @@ from netCDF4 import Dataset
 import seaborn as sns #just to make plots look nicer, optional
 sns.set(style='ticks',font_scale=1.2)
 '''Configure here'''
-file_dir = '/home/elynn/Documents/uclales/dycomsrf01_br02/RF01_hour34_1min/'
-reducets_name = 'rf01.ts.nc'
-run_stitched_file = 'rf01_stitched.nc'
+file_dir = '/home/elynn/Documents/uclales/ASTEX/hr_3_4_1min/'
+reducets_name = 'astx40.ts.nc'
+run_stitched_file = 'astx40_stitched.nc'
 run_time_res = 60. #LES time resolution
 run_startTime = 10860. #LES start time
 run_endTime = 14400. #LES end time
 z_scale = 'zi2_bar'
-output_dir = '/home/elynn/Documents/uclales/dycomsrf01_br02/RF01_hour34_1min/plume_output/zi2_bar_5percent_plume/'
+output_dir = file_dir+'plume_output/zi2_bar_5percent_plume/'
 '''End configuration'''
 
 '''Read time statistic file and stitched LES file'''
@@ -36,7 +37,9 @@ t = les_ncfile['t']
 z = les_ncfile['zm'][:]
 
 '''3 loops - time, variables, vertical slice'''
-for t_index in range(60):
+for t_index in range(len(ts_LES)):
+    t_anom = np.average(np.average(t[t_index,:,:,:],axis=0),axis=0)
+    t_anom = t[t_index,:,:,:] - t_anom
     flag = True #first time in each t_index
     for vc in range(len(plume_vars)): #loop over plume profiles
         current_zstar = ts_ncfile[z_scale][np.where(ts_time == ts_LES[t_index])[0][0]] #match time stamp in ts file
@@ -47,12 +50,15 @@ for t_index in range(60):
         for i in range(len(z)): #loop over the vertical slice 
             current_var = var[t_index,:,:,i]
             current_w = w[t_index,:,:,i]
-            if np.abs(current_w).max()>0:
-                selector = np.where(current_w<=np.percentile(current_w,7)) #find downdraft
-                current = current_var[selector].mean()
+            current_tanom = t_anom[:,:,i]
+            dd_selector = np.where((current_w<0)&(current_tanom<0))
+            up_selector = np.where((current_w>0)&(current_tanom>0))
+            if np.abs(current_w).max()>1e-3:
+                selector = np.where(current_w[dd_selector]<=np.percentile(current_w[dd_selector],5)) #find downdraft
+                current = current_var[dd_selector][selector].mean()
                 vertical_var.append(current)
-                selector = np.where(current_w>=np.percentile(current_w,93)) #find updraft
-                current = current_var[selector].mean()
+                selector = np.where(current_w[up_selector]>=np.percentile(current_w[up_selector],95)) #find updraft
+                current = current_var[up_selector][selector].mean()
                 vertical_var_ud.append(current)
             else:
                 vertical_var.append(np.nan)
@@ -74,18 +80,18 @@ for t_index in range(60):
             output['domain_'+plume_vars[vc]] = domain_var
             output['updraft_'+plume_vars[vc]] = vertical_var_ud
             output['downdraft_'+plume_vars[vc]] = vertical_var
-    output.to_csv(output_dir+'Vertical_profile_at_time_'+str(t_index+1)+'.csv')
+    output.to_csv(output_dir+'Quadrant_filter_vertical_profile_at_time_'+str(t_index+1)+'.csv')
 
 '''plotting function'''
 def plot_hourly_avg_vert_profile(plume_vars,output_dir):
     xlabels = [r'$\theta_l$ [K]',r'$q_T$ [g/kg]',r'$q_l$ [g/kg]',r'$w$ [m/s]']
-#    xlabels = [r'$\theta_l$ [K]',r'$q_T$ [g/kg]',r'$w$ [m/s]']
-    xlimits = [[289.1,289.5],[8.5,9.5],[-0.01,0.7],[-2.0,2.0]] #DYCOMS RF01
+#    xlimits = [[291.0,291.4],[10.4,10.9],[-0.01,0.6],[-2.0,2.0]] #NKX MZ
+#    xlimits = [[289.0,289.6],[8.5,9.5],[-0.01,0.5],[-2.0,2.0]] #RF01 reg
 #    xlimits = [[288.2,288.7],[9.0,10.0],[-0.01,0.7],[-2.0,2.0]] #CGILS S12 ctl
-#    xlimits = [[303.2,304.2],[9.8,10.2],[-2.2,2.2]] #DryCBL
+    xlimits = [[287.8,288.8],[10.,11.2],[-0.01,1.0],[-1.5,1.5]] #ASTEX
     flag = True
     for t_index in range(1,61):
-        current = pd.read_csv(output_dir+'Vertical_profile_at_time_'+str(t_index)+'.csv',index_col=0) 
+        current = pd.read_csv(output_dir+'Quadrant_filter_vertical_profile_at_time_'+str(t_index)+'.csv',index_col=0) 
         if flag:
             output = current
             flag = False
@@ -113,14 +119,9 @@ def plot_hourly_avg_vert_profile(plume_vars,output_dir):
             plt.legend(loc=0) 
     suptitle = plt.suptitle('Hour3-4 average', y=1.05)
     plt.tight_layout()
-#    plt.savefig(output_dir+'Plume_vars_hour_34_avg.png',dpi=200,bbox_inches='tight',bbox_extra_artists=[suptitle])
+    plt.savefig(output_dir+'Quadrant_filter_plume_vars_hour_34_avg.png',dpi=200,bbox_inches='tight',bbox_extra_artists=[suptitle])
     return output
 output = plot_hourly_avg_vert_profile(plume_vars,output_dir)
-#dd_t = output['downdraft_t'].mean(axis=1)
-#domain_t = output['domain_t'].mean(axis=1)
-#vert = pd.concat((dd_t,domain_t),axis=1)
-#vert = pd.concat((dd_t,domain_t),axis=1,names=['Downdraft','Domain'])
-#vert.to_csv(output_dir+'Vertical_profile_hourly_avg.csv')
 dd_q = output['downdraft_q'].mean(axis=1)
 ud_q = output['updraft_q'].mean(axis=1)
 domain_q = output['domain_q'].mean(axis=1)
@@ -137,4 +138,4 @@ vert.columns = ['Downdraft thetaL','Updraft thetaL','Domain thetaL',\
                 'Downdraft qt','Updraft qt','Domain qt',\
                 'Downdraft ql','Updraft ql','Domain ql',\
                 'Downdraft w','Updraft w']
-vert.to_csv(output_dir+'Vertical_profile_all_variables_hourly_avg.csv')
+vert.to_csv(output_dir+'Quadrant_filter_vertical_profile_all_variables_hourly_avg.csv')

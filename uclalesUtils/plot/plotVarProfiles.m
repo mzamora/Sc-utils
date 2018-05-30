@@ -21,20 +21,23 @@ axis tight
 ylabel('z/<z_{i}> [-]', 'fontsize', fs.axes), xlabel('<u''^{2}>/w*^{2} [-]', 'fontsize', fs.axes)
 box on, grid on
 legend(timestamps, 'location', 'northeast', 'fontsize', fs.legend)
-ylim([0 1]), set(gca, 'ytick', [0:0.2:1])
+set(gca, 'ytick', [0:0.2:2]), ylim([0.8 1.4])
+xlim([0 0.8])
 
 figure(h(2))
 axis tight
 ylabel('z/<z_{i}> [-]', 'fontsize', fs.axes), xlabel('<v''^{2}>/w*^{2} [-]', 'fontsize', fs.axes)
 box on, grid on
 legend(timestamps, 'location', 'northeast', 'fontsize', fs.legend)
-ylim([0 1]), set(gca, 'ytick', [0:0.2:1])
+set(gca, 'ytick', [0:0.2:2]), ylim([0.8 1.4])
+xlim([0 0.8])
 
 figure(h(3))
 axis tight
 ylabel('z/<z_{i}> [-]', 'fontsize', fs.axes), xlabel('<w''^{2}>/w*^{2} [-]', 'fontsize', fs.axes)
 box on, grid on
 legend(timestamps, 'location', 'northeast', 'fontsize', fs.legend)
-ylim([0 1]), set(gca, 'ytick', [0:0.2:1])
+set(gca, 'ytick', [0:0.2:2]), ylim([0.8 1.4])
+xlim([0 0.4])
 
 end

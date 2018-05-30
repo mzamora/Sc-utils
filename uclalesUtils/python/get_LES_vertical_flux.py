@@ -14,14 +14,14 @@ import seaborn as sns #just to make plots look nicer, optional
 sns.set(style='ticks',font_scale=1.2)
 
 '''Configure here'''
-file_dir = '/home/elynn/Documents/uclales/cgils_s12_ctl/hr_3_4_1min/'
-reducets_name = 'cgils_s12_ctl.ts.nc'
-run_stitched_file = 'cgils_s12_ctl_hr_3_4_1min_stitched.nc'
+file_dir = '/home/elynn/Documents/uclales/dycomsrf01_br02/RF01_hour34_1min/'
+reducets_name = 'rf01.ts.nc'
+run_stitched_file = 'rf01_stitched.nc'
 run_time_res = 60. #LES time resolution
 run_startTime = 10860. #LES start time
 run_endTime = 14400. #LES end time
 z_scale = 'zi2_bar'
-output_dir = '/home/elynn/Documents/uclales/cgils_s12_ctl/hr_3_4_1min/plume_output/zi2_bar_5percent_plume/'
+output_dir = '/home/elynn/Documents/uclales/dycomsrf01_br02/RF01_hour34_1min/plume_output/zi2_bar_5percent_plume/'
 '''End configuration'''
 
 ts_ncfile = Dataset(file_dir+reducets_name) #time statistics from reducets

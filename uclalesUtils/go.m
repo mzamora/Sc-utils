@@ -1,7 +1,7 @@
 % LES data processing code
 % Author: Handa Yang - University of California, San Diego
-clear all
-
+% clear all
+defineConstants
 %% Setup
 % Read config file
 defaultConfig; divider(1:127) = '=';
@@ -19,7 +19,7 @@ eps.format = 'epsc2'; png.format = 'png'; fig.format = 'fig';
 
 %% Load profile statistics (1D vars)
 % runName.ps.nc: Profile statistics
-varNames = [{'time'}, {'zt'}, {'zm'}, {'t'}, {'tot_uw'}, {'sfs_uw'}, {'tot_vw'}, {'sfs_vw'}, {'tot_tw'}, {'sfs_tw'}, {'tot_ww'}, {'sfs_ww'}, {'tot_qw'}, {'sfs_qw'}, {'tot_lw'}, {'sfs_tke'}, {'u_2'}, {'v_2'}, {'w_2'}, {'q'}, {'l'}, {'p'}, {'prd_uw'}, {'u'}, {'v'}, {'boy_prd'}, {'sfs_boy'}, {'sflx'}, {'rflx'}, {'lflxu'}, {'lflxd'}, {'sflxu'}, {'sflxd'}, {'kh'}]; % q in [g/kg]
+varNames = [{'time'}, {'zt'}, {'zm'}, {'t'}, {'tot_uw'}, {'sfs_uw'}, {'tot_vw'}, {'sfs_vw'}, {'tot_tw'}, {'sfs_tw'}, {'tot_ww'}, {'sfs_ww'}, {'tot_qw'}, {'sfs_qw'}, {'tot_lw'}, {'sfs_tke'}, {'u_2'}, {'v_2'}, {'w_2'}, {'q'}, {'l'}, {'p'}, {'prd_uw'}, {'u'}, {'v'}, {'trans'}, {'diss'}, {'boy_prd'}, {'sfs_boy'}, {'shr_prd'}, {'sfs_shr'}, {'sflx'}, {'rflx'}, {'lflxu'}, {'lflxd'}, {'sflxu'}, {'sflxd'}, {'kh'}, {'t_2'}, {'q_2'}]; % q in [g/kg]
 % zt: t, u_2, v_2, q
 % zm: tot_uw, tot_vw, tot_tw, w_2
 for idx = 1:length(varNames)
@@ -28,6 +28,11 @@ end
 
 ps.dt = ps.time(2) - ps.time(1); % Define delta time for temporal averaging purposes
 ps.intervalIdx = conf.avgInterval ./ ps.dt;
+
+ps.tot_tvw = ps.tot_tw ./ cpAir ./ densityAir .* (1 + 0.61.*(ps.tot_qw - ps.tot_lw) ./ Lv ./ densityAir - ps.tot_lw ./ Lv ./ densityAir);
+varNames{end+1} = 'tot_tvw';
+ps.sfs_tvw = ps.sfs_tw  ./ cpAir ./ densityAir .* (1 + 0.61.*(ps.sfs_qw) ./ Lv ./ densityAir);
+varNames{end+1} = 'sfs_tvw';
 
 % Average temporally
 for idx = 4:length(varNames) % Omit time, zt, zm from averaging (first three variable names)
@@ -88,11 +93,16 @@ for idx = 1:length(ts.avg.ustar)
 	ts.avg.wstar_sfc{idx} = ( (9.81 .* ts.avg.(conf.zScale){idx} ./ ts.avg.tsrf{idx} ) .* ts.avg.sfcbflx{idx} ) .^ (1/3);
 end
 
+for idx = 1:length(ps.avg.t)
+    ps.avg.theta{idx} = ps.avg.t{idx} + Lv ./ cpAir .* ps.avg.l{idx} ./ 1000;
+    ps.avg.theta_v{idx} = ps.avg.theta{idx} .* (1 + 0.61 .* (ps.avg.q{idx} - ps.avg.l{idx}) ./ 1000 - ps.avg.l{idx} ./ 1000);
+end
+
 % !!! TEMPORARY !!! DELETE THIS
 % THIS IS TO SET VALUES TO ABSOLUTE VALUES TO COMPARE WITH WRF-SCM
-for idx = 1:length(ts.avg.zi_bar)
-	ts.avg.(conf.uScale){idx} = 1;
-end
+% for idx = 1:length(ts.avg.zi_bar)
+% 	ts.avg.(conf.uScale){idx} = 1;
+% end
 
 %% Load FIELDS
 % 8 processors. 2x4 grid spacing. Large dimension along x-dir, two partitions. Small dimension along y-dir, four partitions.
@@ -188,8 +198,9 @@ while action == 1
 	disp(' '), disp('===== Vertical fluxes ====='), disp(' ')
 	disp('[3] Shear stress <u''w''>./w*^2 vs. height')
 	disp('[4] Total vertical flux of theta <w''theta''> vs. height')
+	disp('[41] Total vertical flux of theta_v <w''theta_v''> vs. height')
 	disp('[18] Total vertical flux of w <w''w''> vs. height')
-	disp('[19] Total vertical flux of q <q''w''> vs. height (WIP)')
+	disp('[19] Total vertical flux of q <q''w''> vs. height')
 	disp('[20] Total vertical flux of l <l''w''> vs. height (WIP)')
 	
 	disp(' '), disp('===== Cloud properties ====='), disp(' ')
@@ -207,6 +218,7 @@ while action == 1
 	disp(' '), disp('===== Velocity ====='), disp(' ')
 	disp('[9] Velocity variance vs. time')
 	disp('[10] Velocity variance vs. height')
+	disp('[100] Variance of theta and q_t vs. height')
 
 	disp(' '), disp('===== Surface fluxes and buoyancy ====='), disp(' ')
 	disp('[12] Surface buoyancy flux vs. time')
@@ -217,6 +229,8 @@ while action == 1
 	disp('[99] Plot shear stress (vector averaged) <u''w''>, <v''w''>')
 	
 	disp('[0] Ensemble')
+	disp('[1234] TKE budget')
+    disp('[2222] Obukhov Length and Ri')
 	
 	% Prompt input
 	disp(' ')
@@ -257,6 +271,14 @@ while action == 1
 			
 			hgexport(h, [conf.outputDir '/eps_' conf.runName '_heatFlux' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_heatFlux' '.png'], png);
             
+		case 41 % Heat flux (PS) (Sum of resolved + SGS) vs. height
+			
+			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
+			h = newFig(4); plotBuoyancyFlux(ps, ps.segment, ps.zm, ts.avg.(conf.zScale), plotSegments, lw, fs, style)
+			
+		hgexport(h, [conf.outputDir '/eps_' conf.runName '_buoyancyFlux' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_buoyancyFlux' '.png'], png);
+% 		hgexport(h, [conf.outputDir '/eps_' conf.runName '_buoyancyFluxZoom' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_buoyancyFluxZoom' '.png'], png);
+			
         case 5 % Km
             
             showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
@@ -286,12 +308,23 @@ while action == 1
 			
 		case 10 % Velocity variance vs. height (PS)
 			
+			showSegments(ps.segment, conf.avgInterval, divider)
 			h(1) = newFig(4); h(2) = newFig(5); h(3) = newFig(6); plotSegments = input('Input which times to plot: ');
 			plotVarProfiles(ps, ts, conf, plotSegments, lw, fs, style, h)
 			
 			hgexport(h(1), [conf.outputDir '/eps_' conf.runName '_velVar_u' '.eps'], eps); hgexport(h(1), [conf.outputDir '/png_' conf.runName '_velVar_u' '.png'], png);
 			hgexport(h(2), [conf.outputDir '/eps_' conf.runName '_velVar_v' '.eps'], eps); hgexport(h(2), [conf.outputDir '/png_' conf.runName '_velVar_v' '.png'], png);
 			hgexport(h(3), [conf.outputDir '/eps_' conf.runName '_velVar_w' '.eps'], eps); hgexport(h(3), [conf.outputDir '/png_' conf.runName '_velVar_w' '.png'], png);
+			
+		case 100 % t_2 and q_2 vs. height (PS)
+			
+			showSegments(ps.segment, conf.avgInterval, divider)
+			h(1) = newFig(4); h(2) = newFig(5); h(3) = newFig(6); plotSegments = input('Input which times to plot: ');
+			plotScalarVarProfiles(ps, ts, conf, plotSegments, lw, fs, style, h)
+			
+			hgexport(h(1), [conf.outputDir '/eps_' conf.runName '_scalarVar_t' '.eps'], eps); hgexport(h(1), [conf.outputDir '/png_' conf.runName '_scalarVar_t' '.png'], png);
+			hgexport(h(2), [conf.outputDir '/eps_' conf.runName '_scalarVar_q' '.eps'], eps); hgexport(h(2), [conf.outputDir '/png_' conf.runName '_scalarVar_q' '.png'], png);
+			hgexport(h(3), [conf.outputDir '/eps_' conf.runName '_scalarVar_Int' '.eps'], eps); hgexport(h(3), [conf.outputDir '/png_' conf.runName '_scalarVar_Int' '.png'], png);
 			
 		case 11 % Cloud fraction vs. time
 			
@@ -340,17 +373,16 @@ while action == 1
 			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
 			h = newFig(3); plotFluxW(ps, ts, conf, plotSegments, lw, fs, style)
 			
-			hgexport(h, [conf.outputDir '/eps_' conf.runName '_fluxW' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_shearStress' '.png'], png);
+			hgexport(h, [conf.outputDir '/eps_' conf.runName '_fluxW' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_fluxW' '.png'], png);
 			
 		case 19 % Total vertical flux of q vs. height
-			
-			%% WIP %%
 			
 			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
 			h = newFig(3); % plotFluxQ(ps, ts, conf, plotSegments, lw, fs, style);
             plotFluxQ(ps, ps.segment, ps.zm, ts.avg.(conf.zScale), plotSegments, lw, fs, style);
 			
-			hgexport(h, [conf.outputDir '/eps_' conf.runName '_fluxQ' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_shearStress' '.png'], png);
+% 			hgexport(h, [conf.outputDir '/eps_' conf.runName '_fluxQ' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_fluxQ' '.png'], png);
+			hgexport(h, [conf.outputDir '/eps_' conf.runName '_fluxQZoom' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_fluxQZoom' '.png'], png);
 			
 		case 20 % Total vertical flux of l (not including sfs?) vs. height
 			
@@ -368,14 +400,24 @@ while action == 1
 			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
 			h = newFig(3); plotBuoyProd(ps, ts, conf, plotSegments, lw, fs, style)
 			
-			hgexport(h, [conf.outputDir '/eps_' conf.runName '_buoyProd' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_shearStress' '.png'], png);
+			hgexport(h, [conf.outputDir '/eps_' conf.runName '_buoyProd' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_buoyProd' '.png'], png);
+			
+		case 211 % Buoyancy production of resolved TKE vs. height
+			
+			%% WIP
+			
+			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
+			h = newFig(3); plotShrProd(ps, ts, conf, plotSegments, lw, fs, style)
+			
+			hgexport(h, [conf.outputDir '/eps_' conf.runName '_shrProd' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_shrProd' '.png'], png);
+			
 			
 		case 22 % Radiative flux vs. height (total, shortwave, longwave [subtract short from total])
 			
 			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
 			h = newFig(3); plotRadFlux(ps, ts, conf, plotSegments, lw, fs, style)
 						
-			hgexport(h, [conf.outputDir '/eps_' conf.runName '_radFlux' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_shearStress' '.png'], png);
+			hgexport(h, [conf.outputDir '/eps_' conf.runName '_radFlux' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_radFlux' '.png'], png);
 			
 		case 23 % Longwave radiative flux up and down vs. height
 			
@@ -411,7 +453,19 @@ while action == 1
 			
 			hgexport(h(1), [conf.outputDir '/eps_' conf.runName '_ensemble' '.eps'], eps); hgexport(h(1), [conf.outputDir '/png_' conf.runName '_ensemble' '.png'], png);
 			
-		otherwise % Catch to prevent infinite loop
+		case 1234 % TKE budget
+			showSegments(ps.segment, conf.avgInterval, divider); plotSegments = input('Input which times to plot: ');
+			h = newFig(2); set(h, 'position', [50 50 800 600]); plotTKEBudgetprofile(ps, ts, conf, plotSegments, lw, fs, style)
+			
+			hgexport(h, [conf.outputDir '/eps_' conf.runName '_TKEbudget' '.eps'], eps); hgexport(h, [conf.outputDir '/png_' conf.runName '_TKEbudget' '.png'], png);
+        case 2222
+%             showSegments(ps.segment, conf.avgInterval, divider)
+			h(1) = newFig(4); h(2) = newFig(5);
+			plotOblRi(ps, ts, conf, lw, fs, style, h)
+			
+			hgexport(h(1), [conf.outputDir '/eps_' conf.runName 'Obukhov' '.eps'], eps); hgexport(h(1), [conf.outputDir '/png_' conf.runName 'Obukhov' '.png'], png);
+			hgexport(h(2), [conf.outputDir '/eps_' conf.runName 'Ri' '.eps'], eps); hgexport(h(2), [conf.outputDir '/png_' conf.runName 'Ri' '.png'], png);
+        otherwise % Catch to prevent infinite loop
 			
 			action = 0;
 			

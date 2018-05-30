@@ -27,6 +27,40 @@
 % conf.zScale			=		'zi3_bar';
 % conf.uScale			=		'wstar';
 
+%% Old 24hr LES runs
+
+% Actually RF01
+% conf.runName = 'cgils_s12_ctl';
+% conf.inputDir= '~/Dropbox/Data/DYCOMS_ocean_run/';
+% conf.outputDir = '~/Dropbox/plotsNOW/les/YSUBUOY_DYCOMS/';
+% conf.avgInterval = 3600;
+% conf.zScale = 'zi1_bar';
+% conf.uScale = 'wstar_sfc';
+
+% Actually CGILS
+conf.runName = 'rf01';
+conf.inputDir= '~/Dropbox/Data/CGILS_ocean_run/';
+conf.outputDir = '~/Dropbox/plotsNOW/les/YSUBUOY_DYCOMS/';
+conf.avgInterval = 3600;
+conf.zScale = 'zi1_bar';
+conf.uScale = 'wstar_sfc';
+%% NKX vertical resolution study
+
+%% UCLALES CBL
+
+% conf.runName			=	'dcbl_x';
+% if ispc
+% conf.inputDir		=	'C:\Users\Handa\Dropbox\matlab\lesData\dcbl_witek_2010\';
+% conf.outputDir       =   'C:\Users\Handa\Documents\Work\lesData\dcbl_witek\';
+% elseif ismac
+%     conf.inputDir = '~/Documents/MATLAB/cbl/';
+%     conf.outputDir = '~/Documents/MATLAB/cbl/plots/';
+% end
+% conf.avgInterval		=	600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
+
 %%
 %%% %%% %%% %%% %%% %%% %%%
 
@@ -34,19 +68,63 @@
 
 %%% %%% %%% %%% %%% %%% %%%
 
+% Check 1/3 original
+% conf.runName			=	'NKX_20170712_concat';
+% conf.inputDir		=	'/mnt/lab_45d1/database/Sc_group/uclales_output/NKX_20170712/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/test/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
+% conf.runName			=	'cgils_s12_ctl';
+% conf.inputDir		=	'/mnt/lab_45d1/database/Sc_group/uclales_output/cgils_s12_ctl/hr_3_6_60min/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/test/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
+% Check 1/3
+% conf.runName			=	'NKX_20170712';
+% conf.inputDir		=	'/mnt/lab_48tb1/users/hyang/database/wrfIdeal/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/test/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
 %% UCLALES CBL
 
-conf.runName			=	'dcbl_x';
-if ispc
-conf.inputDir		=	'C:\Users\Handa\Dropbox\matlab\lesData\dcbl_witek_2010\';
-conf.outputDir       =   'C:\Users\Handa\Documents\Work\lesData\dcbl_witek\';
-elseif ismac
-    conf.inputDir = '~/Documents/MATLAB/cbl/';
-    conf.outputDir = '~/Documents/MATLAB/cbl/plots/';
-end
-conf.avgInterval		=	600;
-conf.zScale			=	'zi1_bar';
-conf.uScale			=	'wstar_sfc';
+% Coarse
+% conf.runName			=	'NKX_20170628_10m_dx70_52pts';
+% conf.inputDir		=	'/mnt/lab_45d1/database/Sc_group/uclales_output/NKX_20170628_10m_dx70_52pts/hr_1_3_60min_with_spinup/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/coarse/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
+% Normal
+% conf.runName			=	'NKX_20170628_5m';
+% conf.inputDir		=	'/mnt/lab_45d1/database/Sc_group/uclales_output/NKX_20170628_5m/hr_1_3_60min_with_spinup/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/normal/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
+% Fine
+% conf.runName			=	'NKX_20170628_2p5m_dx17p5_196pts';
+% conf.inputDir		=	'/mnt/lab_45d1/database/Sc_group/uclales_output/NKX_20170628_2p5m_dx17p5_196pts/hr_1_3_60min_with_spinup/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/fine/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
+
+
+% Concatenated real runs v1
+% conf.runName			=	'NKX_20170623_concat';
+% conf.inputDir		=	'/mnt/lab_45d1/database/Sc_group/uclales_output/NKX_20170623/';
+% conf.outputDir       =   '~/Dropbox/plotsNOW/les/test/';
+% conf.avgInterval		=	3600;
+% conf.zScale			=	'zi1_bar';
+% conf.uScale			=	'wstar_sfc';
 
 
 %% TO COMPARE AGAINST WITEK 2010 CBL

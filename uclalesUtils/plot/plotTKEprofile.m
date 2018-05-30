@@ -20,5 +20,7 @@ axis tight
 ylabel('z/<z_{i}> [-]', 'fontsize', fs.axes), xlabel('TKE/w*^2 [-]', 'fontsize', fs.axes)
 box on
 legend([timestamps, 'Res (last)', 'SGS (last)'], 'location', 'northeastoutside', 'fontsize', fs.legend)
+ylim([0 2])
+xlim([0 0.8])
 
 end

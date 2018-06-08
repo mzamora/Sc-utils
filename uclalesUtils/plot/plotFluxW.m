@@ -21,6 +21,9 @@ plot(SGS, ps.zm./ts.avg.(conf.zScale){ selections(end) }, 'color', [0.7 0.7 0.7]
 plot( (FluxW - SGS) , ps.zm./ts.avg.(conf.zScale){ selections(end) }, 'color', [0.7 0.7 0.7], 'linestyle', '--', 'linewidth', lw);
 
 axis tight
+% ylim([0.8 1.4])
+ylim([0 2])
+xlim([0 0.6])
 ylabel('z/<z_{i}> [-]', 'fontsize', fs.axes)
 xlabel('<w''w''>/w^{*}^{2} [-]', 'fontsize', fs.axes)
 box on

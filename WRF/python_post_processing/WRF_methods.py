@@ -9,14 +9,161 @@ import datetime
 import pytz
 import pandas as pd
 import os
-from wrf import getvar
+from wrf import getvar, destagger
 import fnmatch
 from netCDF4 import Dataset
 import numpy as np
 import numpy.ma as ma
 from oct2py import octave
 from math import radians, cos, sin, asin, sqrt
+rho = 1.28
+Lv = 2.5e6
+cpAir = 1005. #specific heat of dry air [J/kgK]
+def get_thetaL_at_time_index(f,t_index,loci,locj,average_flag):
+    '''Get liquid potential temeprature at the specified time index
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    t_index: int, or array of ints
+        index/indices for time
+    loci, locj: int
+        index to lat and lon
+    average_flag: boolean
+        whether to avearage time indicies when len(t_index)>1
+    Returns
+    -------
+    thetaL: np.array of float
+        Liquid water potential temperature
+    '''
+    if type(t_index) is int: #only 1 single time index is specified
+        theta = f['T'][t_index,:,loci,locj]+300.
+        ql = f['QCLOUD'][t_index,:,loci,locj]
+        thetaL = theta - Lv/cpAir * ql
+        average_flag = False #no average allowed because only 1 t_index specified
+    else: #t_index is a list or array
+        theta = np.zeros((len(t_index),f['T'].shape[1]))
+        ql = np.zeros((len(t_index),f['T'].shape[1]))
+        thetaL = np.zeros((len(t_index),f['T'].shape[1]))
+        for i in range(len(t_index)):
+            theta = f['T'][t_index[i],:,loci,locj]+300.
+            ql = f['QCLOUD'][t_index[i],:,loci,locj]
+            thetaL[i,:] = theta - Lv/cpAir * ql
+    if average_flag:
+        thetaL = np.average(thetaL,axis=0)
+    return thetaL
 
+def get_qL_at_time_index(f,t_index,loci,locj,average_flag):
+    '''Get liquid water mixing ratio at the specified time index
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    t_index: int, or array of ints
+        index/indices for time
+    loci, locj: int
+        index to lat and lon
+    average_flag: boolean
+        whether to avearage time indicies when len(t_index)>1
+    Returns
+    -------
+    thetaL: np.array of float
+        Liquid water potential temperature
+    '''
+    if type(t_index) is int: #only 1 single time index is specified
+        ql = f['QCLOUD'][t_index,:,loci,locj]
+        average_flag = False #no average allowed because only 1 t_index specified
+    else: #t_index is a list or array
+        ql = np.zeros((len(t_index),f['T'].shape[1]))
+        thetaL = np.zeros((len(t_index),f['T'].shape[1]))
+        for i in range(len(t_index)):
+            ql[i,:] = f['QCLOUD'][t_index[i],:,loci,locj]
+    if average_flag:
+        thetaL = np.average(thetaL,axis=0)
+    return ql
+
+def get_qt_at_time_index(f,t_index,loci,locj,average_flag):
+    '''Get total water mixing ratio at the specified time index
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    t_index: int, or array of ints
+        index/indices for time
+    loci, locj: int
+        index to lat and lon
+    average_flag: boolean
+        whether to avearage time indicies when len(t_index)>1
+    Returns
+    -------
+    thetaL: np.array of float
+        Liquid water potential temperature
+    '''
+    if type(t_index) is int: #only 1 single time index is specified
+        ql = f['QCLOUD'][t_index,:,loci,locj]
+        qv = f['QVAPOR'][t_index,:,loci,locj]
+        average_flag = False #no average allowed because only 1 t_index specified
+    else: #t_index is a list or array
+        ql = np.zeros((len(t_index),f['T'].shape[1]))
+        qv = np.zeros((len(t_index),f['T'].shape[1]))
+        for i in range(len(t_index)):
+            ql[i,:] = f['QCLOUD'][t_index[i],:,loci,locj]
+            qv[i,:] = f['QVAPOR'][t_index[i],:,loci,locj]
+    qt = ql + qv
+    if average_flag:
+        qt = np.average(qt,axis=0)
+    return qt
+
+def get_eddy_diffusivity_flux(f,z,t_index,loci,locj,scalar,average_flag):
+    '''Get eddy diffusivity flux (-K dphi/dz)
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    z: array of floats
+        model height
+    t_index: int, or array of ints
+        index/indices for time
+    loci, locj: int
+        index to lat and lon
+    scalar: np.array
+        Scalar can be liquid water potential temperature, mixing ratio, etc
+    average_flag: boolean
+        whether to avearage time indicies when len(t_index)>1
+    Returns
+    -------
+    ED: np.array
+        Eddy diffusivity part of the turbulent flux [W/m^2]
+    '''
+    #First destagger eddy diffusivity because it's in staggered grid whereas the scalars are in regular grid
+    if type(t_index) is int: #only 1 single time index is specified
+        K_destagger = destagger(f['EXCH_H'][t_index,:,loci,locj],0)
+        dscalar_dz = np.zeros(len(z)-1)
+        for i in range(len(z)-1):
+            if i==0: #forward difference at the start
+                dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[i+1]-scalar[i])
+            elif i==len(z)-1: #backward difference at the end
+                dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[i]-scalar[i-1])
+            else: #2nd central difference for everything in the middle
+                dscalar_dz[i] = 1./(2.*np.diff(z)[i-1]) * (scalar[i+1]-scalar[i-1])
+        average_flag = False #no average allowed because only 1 t_index specified
+        ED = -K_destagger[0:-1] * dscalar_dz
+    else: #t_index is a list or array
+        dscalar_dz = np.zeros(len(z)-1)
+        ED = np.zeros((len(t_index),len(z)-1))
+        for tc in range(len(t_index)):
+            K_destagger = destagger(f['EXCH_H'][t_index[tc],:,loci,locj],0)
+            for i in range(len(z)-1):
+                if i==0: #forward difference at the start
+                    dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[tc,i+1]-scalar[tc,i])
+                elif i==len(z)-1: #backward difference at the end
+                    dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[tc,i]-scalar[tc,i-1])
+                else: #2nd central difference for everything in the middle
+                    dscalar_dz[i] = 1./(2.*np.diff(z)[i-1]) * (scalar[tc,i+1]-scalar[tc,i-1])
+            ED[tc,:] = -K_destagger[0:-1] * dscalar_dz
+    if average_flag:
+        ED = np.average(ED,axis=0)
+    return ED, K_destagger
 def get_qt(f,loci,locj):
     '''Get total water mixing ratio
     (40, 96 ocean point, 30km south of UCSD

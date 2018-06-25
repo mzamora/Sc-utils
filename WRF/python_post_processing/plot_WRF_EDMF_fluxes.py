@@ -6,7 +6,7 @@ Created on Tue Jun  5 14:03:50 2018
 @author: elynn
 """
 import sys
-sys.path.append('/mnt/lab_45d1/users/elynn/sdge_operational_post_processing/')
+sys.path.append('/mnt/lab_45d1/database/Sc_group/github/Sc-utils/WRF/python_post_processing/')
 import WRF_methods as wrf_m
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -37,14 +37,15 @@ lat = f['XLAT'][0,:,:]
 lon = f['XLONG'][0,:,:]
 NKX_loc = wrf_m.find_nearest(lat,lon,32.85,-117.12)
 time_pd = pd.DataFrame(np.arange(len(time)),index=time,columns=['index'])
-t_index = time_pd.between_time('11:15','12:00').as_matrix()[:,0]
+t_index = time_pd.between_time('11:15','12:00').values[:,0]
 z = getvar(f,'z',timeidx=t_index[0])[:,NKX_loc[0][0],NKX_loc[1][0]]
 
 '''EDMF - heat flux'''
 thetaL = wrf_m.get_thetaL_at_time_index(f,t_index,NKX_loc[0][0],NKX_loc[1][0],False)
 MF_wpthetap = f['DBG5'][t_index,:,NKX_loc[0][0],NKX_loc[1][0]] #MF, already in W/m^2
 MF_wpthetap = np.average(MF_wpthetap,axis=0)
-ED_wpthetap, k1 = rho*cpAir*wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],thetaL,True)
+ED_wpthetap, k1 = wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],thetaL,True)
+ED_wpthetap, k1 = rho*cpAir*ED_wpthetap, k1
 ql = wrf_m.get_qL_at_time_index(f,t_index,NKX_loc[0][0],NKX_loc[1][0],False)
 
 '''EDMF - moisture flux'''
@@ -53,7 +54,8 @@ MF_wpqvp = f['DBG22'][t_index,:,NKX_loc[0][0],NKX_loc[1][0]] #MF, already in W/m
 MF_wpqvp = np.average(MF_wpqvp,axis=0)
 MF_wpqlp = f['DBG17'][t_index,:,NKX_loc[0][0],NKX_loc[1][0]] #MF, already in W/m^2
 MF_wpqlp = np.average(MF_wpqlp,axis=0)
-ED_wpqtp, k2 = rho*Lv*wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],qt,True)
+ED_wpqtp, k2 = wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],qt,True)
+ED_wpqtp, k2 = rho*Lv*ED_wpqtp, k2
 
 ###plotting begins here
 fig = plt.figure(figsize=(10,6))
@@ -102,15 +104,18 @@ lat = f['XLAT'][0,:,:]
 lon = f['XLONG'][0,:,:]
 NKX_loc = wrf_m.find_nearest(lat,lon,32.85,-117.12)
 time_pd = pd.DataFrame(np.arange(len(time)),index=time,columns=['index'])
-t_index = time_pd.between_time('11:15','12:00').as_matrix()[:,0]
+t_index = time_pd.between_time('11:15','12:00').values[:,0]
 z = getvar(f,'z',timeidx=t_index[0])[:,NKX_loc[0][0],NKX_loc[1][0]]
 
 '''ED - heat flux'''
 thetaL = wrf_m.get_thetaL_at_time_index(f,t_index,NKX_loc[0][0],NKX_loc[1][0],False)
-ED_wpthetap = rho*cpAir*wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],thetaL,True)
+ED_wpthetap, k3 = wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],thetaL,True)
+ED_wpthetap, k3 = rho*cpAir*ED_wpthetap, k3
 ql = wrf_m.get_qL_at_time_index(f,t_index,NKX_loc[0][0],NKX_loc[1][0],False)
 ax4.plot(ED_wpthetap,z[0:-1],'--',color='saddlebrown')
 '''ED - moisture flux'''
 qt = wrf_m.get_qt_at_time_index(f,t_index,NKX_loc[0][0],NKX_loc[1][0],False)
-ED_wpqtp, k3 = rho*Lv*wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],qt,True)
+ED_wpqtp, k4 = wrf_m.get_eddy_diffusivity_flux(f,z,t_index,NKX_loc[0][0],NKX_loc[1][0],qt,True)
+ED_wpqtp, k4 = rho*Lv*ED_wpqtp, k4
 ax5.plot(ED_wpqtp,z[0:-1],'--',color='saddlebrown')
+#plt.savefig('/mnt/lab_45d1/database/Sc_group/WRF_39_RAP/EDMF_contribution/EDMF.png',dpi=200,bbox_inches='tight')

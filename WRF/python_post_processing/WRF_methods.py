@@ -138,32 +138,42 @@ def get_eddy_diffusivity_flux(f,z,t_index,loci,locj,scalar,average_flag):
     #First destagger eddy diffusivity because it's in staggered grid whereas the scalars are in regular grid
     if type(t_index) is int: #only 1 single time index is specified
         K_destagger = destagger(f['EXCH_H'][t_index,:,loci,locj],0)
-        dscalar_dz = np.zeros(len(z)-1)
-        for i in range(len(z)-1):
-            if i==0: #forward difference at the start
-                dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[i+1]-scalar[i])
-            elif i==len(z)-1: #backward difference at the end
-                dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[i]-scalar[i-1])
-            else: #2nd central difference for everything in the middle
-                dscalar_dz[i] = 1./(2.*np.diff(z)[i-1]) * (scalar[i+1]-scalar[i-1])
+        dscalar_dz = dArray_dz_2nd_central(scalar,z)
         average_flag = False #no average allowed because only 1 t_index specified
-        ED = -K_destagger[0:-1] * dscalar_dz
+        ED = -K_destagger * dscalar_dz
     else: #t_index is a list or array
         dscalar_dz = np.zeros(len(z)-1)
-        ED = np.zeros((len(t_index),len(z)-1))
+        ED = np.zeros((len(t_index),len(z)))
         for tc in range(len(t_index)):
             K_destagger = destagger(f['EXCH_H'][t_index[tc],:,loci,locj],0)
-            for i in range(len(z)-1):
-                if i==0: #forward difference at the start
-                    dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[tc,i+1]-scalar[tc,i])
-                elif i==len(z)-1: #backward difference at the end
-                    dscalar_dz[i] = 1./np.diff(z)[i] * (scalar[tc,i]-scalar[tc,i-1])
-                else: #2nd central difference for everything in the middle
-                    dscalar_dz[i] = 1./(2.*np.diff(z)[i-1]) * (scalar[tc,i+1]-scalar[tc,i-1])
-            ED[tc,:] = -K_destagger[0:-1] * dscalar_dz
+            dscalar_dz = dArray_dz_2nd_central(scalar[tc,:],z)
+            ED[tc,:] = -K_destagger * dscalar_dz
     if average_flag:
         ED = np.average(ED,axis=0)
     return ED, K_destagger
+
+def dArray_dz_2nd_central(array,z):
+    '''This method calculates dArray/dz using 2nd order central difference, forward/backward at end point
+    Parameters
+    ----------
+    array: np.array
+        Arrays to be differentiate
+    z: np.array
+        z coordinate, same size as array
+    Returns
+    -------
+    dArray_dz: np.array
+        should have the same size as array and z
+    '''
+    dArray_dz = np.zeros(len(z))
+    for i in range(len(z)):
+        if i==0: #forward difference at the start
+            dArray_dz[i] = 1./np.diff(z)[i] * (array[i+1]-array[i])
+        elif i==(len(z)-1): #backward difference at the end
+            dArray_dz[i] = 1./np.diff(z)[i-1] * (array[i]-array[i-1])
+        else: #2nd central difference for everything in the middle
+            dArray_dz[i] = 1./(2.*np.diff(z)[i]) * (array[i+1]-array[i-1])   
+    return dArray_dz
 def get_qt(f,loci,locj):
     '''Get total water mixing ratio
     (40, 96 ocean point, 30km south of UCSD

@@ -9,16 +9,42 @@ import datetime
 import pytz
 import pandas as pd
 import os
-from wrf import getvar, destagger
+from wrf import getvar, destagger 
 import fnmatch
 from netCDF4 import Dataset
 import numpy as np
 import numpy.ma as ma
-from oct2py import octave
+# from oct2py import octave
 from math import radians, cos, sin, asin, sqrt
+import conda
+'''This is to fix the projection problem'''
+conda_file_dir = conda.__file__
+conda_dir = conda_file_dir.split('lib')[0]
+proj_lib = os.path.join(os.path.join(conda_dir, 'share'), 'proj')
+os.environ["PROJ_LIB"] = proj_lib
+'''This is to fix the projection problem'''
+
 rho = 1.28
 Lv = 2.5e6
 cpAir = 1005. #specific heat of dry air [J/kgK]
+def get_BL_avg_var_at_time_index(f,t_index,var):
+    '''Get BL mean of specified variable (e.g., thetaL, qt)
+    '''
+    z = getvar(f,'z',timeidx=t_index)[:,1,1].values
+#    PBLH = f['PBLH'][t_index,loci,locj]
+#    BL_idx = np.where(z<=PBLH)[0].max()
+#    ql = get_qL_at_time_index(f,t_index,loci,locj,False)
+    zi = get_qlTop_zi(f,t_index)#np.nonzero(ql)[0][-1]
+    BL_idx = np.where(z<=zi)[0][-1]
+    if var == 'thetaL':
+        thetaL = get_thetaL_domain_avg_time_avg(f,t_index,t_index)#get_thetaL_at_time_index(f,t_index,loci,locj,False)
+        BL_avg = thetaL.values[0:BL_idx+1].mean()
+    elif var == 'qt':
+        qt = get_qt_domain_avg_time_avg(f,t_index,t_index)#get_qt_at_time_index(f,t_index,loci,locj,False)
+        BL_avg = qt.values[0:BL_idx+1].mean()
+    return BL_avg
+
+
 def get_thetaL_at_time_index(f,t_index,loci,locj,average_flag):
     '''Get liquid potential temeprature at the specified time index
     Parameters
@@ -36,14 +62,12 @@ def get_thetaL_at_time_index(f,t_index,loci,locj,average_flag):
     thetaL: np.array of float
         Liquid water potential temperature
     '''
-    if type(t_index) is int: #only 1 single time index is specified
+    if (type(t_index) is int) or (type(t_index) is np.int64): #only 1 single time index is specified
         theta = f['T'][t_index,:,loci,locj]+300.
         ql = f['QCLOUD'][t_index,:,loci,locj]
         thetaL = theta - Lv/cpAir * ql
         average_flag = False #no average allowed because only 1 t_index specified
     else: #t_index is a list or array
-        theta = np.zeros((len(t_index),f['T'].shape[1]))
-        ql = np.zeros((len(t_index),f['T'].shape[1]))
         thetaL = np.zeros((len(t_index),f['T'].shape[1]))
         for i in range(len(t_index)):
             theta = f['T'][t_index[i],:,loci,locj]+300.
@@ -70,7 +94,7 @@ def get_qL_at_time_index(f,t_index,loci,locj,average_flag):
     thetaL: np.array of float
         Liquid water potential temperature
     '''
-    if type(t_index) is int: #only 1 single time index is specified
+    if (type(t_index) is int) or (type(t_index) is np.int64): #only 1 single time index is specified
         ql = f['QCLOUD'][t_index,:,loci,locj]
         average_flag = False #no average allowed because only 1 t_index specified
     else: #t_index is a list or array
@@ -96,10 +120,10 @@ def get_qt_at_time_index(f,t_index,loci,locj,average_flag):
         whether to avearage time indicies when len(t_index)>1
     Returns
     -------
-    thetaL: np.array of float
-        Liquid water potential temperature
+    qt: np.array of float
+        Total water mixing ratio
     '''
-    if type(t_index) is int: #only 1 single time index is specified
+    if (type(t_index) is int) or (type(t_index) is np.int64): #only 1 single time index is specified
         ql = f['QCLOUD'][t_index,:,loci,locj]
         qv = f['QVAPOR'][t_index,:,loci,locj]
         average_flag = False #no average allowed because only 1 t_index specified
@@ -113,6 +137,42 @@ def get_qt_at_time_index(f,t_index,loci,locj,average_flag):
     if average_flag:
         qt = np.average(qt,axis=0)
     return qt
+
+def get_thetaV_at_time_index(f,t_index,loci,locj,average_flag):
+    '''Get virtual potential temeprature at the specified time index
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    t_index: int, or array of ints
+        index/indices for time
+    loci, locj: int
+        index to lat and lon
+    average_flag: boolean
+        whether to avearage time indicies when len(t_index)>1
+    Returns
+    -------
+    thetaL: np.array of float
+        Liquid water potential temperature
+    '''
+    if (type(t_index) is int) or (type(t_index) is np.int64): #only 1 single time index is specified
+        theta = f['T'][t_index,:,loci,locj]+300.
+        qv = f['QVAPOR'][t_index,:,loci,locj]
+        ql = f['QCLOUD'][t_index,:,loci,locj]
+        thetaV = theta * (1. + 0.61*qv - ql)
+        average_flag = False #no average allowed because only 1 t_index specified
+    else: #t_index is a list or array
+        theta = np.zeros((len(t_index),f['T'].shape[1]))
+        ql = np.zeros((len(t_index),f['T'].shape[1]))
+        thetaV = np.zeros((len(t_index),f['T'].shape[1]))
+        for i in range(len(t_index)):
+            theta = f['T'][t_index[i],:,loci,locj]+300.
+            qv = f['QVAPOR'][t_index,:,loci,locj]
+            ql = f['QCLOUD'][t_index[i],:,loci,locj]
+            thetaV[i,:] = theta * (1. + 0.61*qv - ql)
+    if average_flag:
+        thetaV = np.average(thetaV,axis=0)
+    return thetaV
 
 def get_eddy_diffusivity_flux(f,z,t_index,loci,locj,scalar,average_flag):
     '''Get eddy diffusivity flux (-K dphi/dz)
@@ -174,6 +234,28 @@ def dArray_dz_2nd_central(array,z):
         else: #2nd central difference for everything in the middle
             dArray_dz[i] = 1./(2.*np.diff(z)[i]) * (array[i+1]-array[i-1])   
     return dArray_dz
+
+def dArray_dz_FD(array,z):
+    '''This method calculates dArray/dz using 1st order forward/backward
+    Parameters
+    ----------
+    array: np.array
+        Arrays to be differentiate
+    z: np.array
+        z coordinate, same size as array
+    Returns
+    -------
+    dArray_dz: np.array
+        should have the same size as array and z
+    '''
+    dArray_dz = np.zeros(len(z))
+    for i in range(len(z)):
+        if i==(len(z)-1): #backward difference at the end
+            dArray_dz[i] = 1./np.diff(z)[i-1] * (array[i]-array[i-1])
+        else: #2nd central difference for everything in the middle
+             dArray_dz[i] = 1./np.diff(z)[i] * (array[i+1]-array[i])
+    return dArray_dz
+
 def get_qt(f,loci,locj):
     '''Get total water mixing ratio
     (40, 96 ocean point, 30km south of UCSD
@@ -228,14 +310,316 @@ def get_thetaL(f,loci,locj):
         ql = f['QCLOUD'][i,:,loci,locj]
         theta_l = theta - (1./pi)*(Lv/Cp)*ql
         t = getvar(f,'temp',timeidx=i)[:,loci,locj].values
-        pblh = get_IBH_zhong_single_index(t,z)#f['PBLH'][i,loci,locj]
+        pblh = f['PBLH'][i,loci,locj]
         BL_idx = np.where(z<=pblh)[0]
-        print i, pblh
+        # print i, pblh
         if len(BL_idx>0): 
             theta_l_ts.append(np.average(theta_l[0:BL_idx[-1]+1]))
         else:
             theta_l_ts.append(np.average(theta_l[0]))
     return np.array(theta_l_ts)
+
+def get_thetaL_domain_avg(f):
+    '''Get liquid water potential temperature
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    Lv = 2.502E6
+    Rd = 287.05
+    Cp = 1006.
+    theta_l_ts = []
+    ts = UCSD_WRF_timestamps2array(f)
+    for i in range(0,len(ts),4):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        theta = getvar(f,'theta',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        theta = np.average(np.average(theta,axis=1),axis=1)
+        pi = (p/p[0])**(Rd/Cp)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        theta_l = theta - (1./pi)*(Lv/Cp)*ql
+        theta_l_ts.append(theta_l)
+    theta_l_ts = np.array(theta_l_ts)
+    theta_l = pd.DataFrame(theta_l_ts[0,:],index=z,columns=['thetaL_hr0'])
+    for i in range(1,theta_l_ts.shape[0]):
+        theta_l['thetaL_hr'+str(i)] = theta_l_ts[i,:]
+    return theta_l
+
+def get_thetaL_domain_avg_time_avg(f,tstart,tend):
+    '''Get liquid water potential temperature
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    Lv = 2.502E6
+    Rd = 287.05
+    Cp = 1006.
+    theta_l_ts = []
+    for i in range(tstart,tend+1,5):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        theta = getvar(f,'theta',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        theta = np.average(np.average(theta,axis=1),axis=1)
+        pi = (p/p[0])**(Rd/Cp)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        theta_l = theta - (1./pi)*(Lv/Cp)*ql
+        theta_l_ts.append(theta_l)
+    theta_l_ts = np.array(theta_l_ts)
+    theta_l_ts = np.average(theta_l_ts,axis=0)
+    theta_l = pd.DataFrame(theta_l_ts,index=z,columns=['thetaL'])
+    return theta_l
+
+def get_ql_domain_avg(f):
+    '''Get liquid water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    ql_ts = []
+    ts = UCSD_WRF_timestamps2array(f)
+    for i in range(0,len(ts),4):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        ql_ts.append(ql)
+    ql_ts = np.array(ql_ts)
+    ql = pd.DataFrame(ql_ts[0,:],index=z,columns=['ql_hr0'])
+    for i in range(1,ql_ts.shape[0]):
+        ql['ql_hr'+str(i)] = ql_ts[i,:]
+    return ql
+
+def get_ql_domain_avg_time_avg(f,tstart,tend):
+    '''Get liquid water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    ql_ts = []
+    for i in range(tstart,tend+1,5):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        ql_ts.append(ql)
+    ql_ts = np.array(ql_ts)
+    ql_ts = np.average(ql_ts,axis=0)
+    ql = pd.DataFrame(ql_ts,index=z,columns=['ql'])
+    return ql
+
+def get_qv_domain_avg_time_avg(f,tstart,tend):
+    '''Get vapor water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    qv_ts = []
+    for i in range(tstart,tend+1,5):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        qv = f['QVAPOR'][i,:,:,:]
+        qv = np.average(np.average(qv,axis=1),axis=1)
+        qv_ts.append(qv)
+    qv_ts = np.array(qv_ts)
+    qv_ts = np.average(qv_ts,axis=0)
+    qv = pd.DataFrame(qv_ts,index=z,columns=['qv'])
+    return qv
+
+def get_var_domain_avg(f,varStr):
+    '''Get liquid water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    var: np.array
+        Variable specified domain averaged
+    '''
+    var_ts = []
+    ts = UCSD_WRF_timestamps2array(f)
+    for i in range(0,len(ts),4):
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        z = np.average(np.average(z,axis=1),axis=1)
+        var = f[varStr][i,:,:,:]
+        var = np.average(np.average(var,axis=1),axis=1)
+        var_ts.append(var)
+    var_ts = np.array(var_ts)
+    var= pd.DataFrame(var_ts[0,:],index=z,columns=['var_hr0'])
+    for i in range(1,var_ts.shape[0]):
+        var['var_hr'+str(i)] = var_ts[i,:]
+    return var
+
+def get_var_domain_avg_all_tindex(f,varStr):
+    '''Get liquid water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    var: np.array
+        Variable specified domain averaged
+    '''
+    var_ts = []
+    ts = UCSD_WRF_timestamps2array(f)
+    for i in range(0,len(ts)):
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        z = np.average(np.average(z,axis=1),axis=1)
+        var = f[varStr][i,:,:,:]
+        var = np.average(np.average(var,axis=1),axis=1)
+        var_ts.append(var)
+    var_ts = np.array(var_ts)
+    var= pd.DataFrame(var_ts[0,:],index=z,columns=['var_hr0'])
+    for i in range(1,var_ts.shape[0]):
+        var['var_t'+str(i)] = var_ts[i,:]
+    return var
+
+def get_var_domain_avg_at_tindex(f,varStr,tindex):
+    '''Get var
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    var: np.array
+        Variable specified domain averaged
+    '''
+    z = getvar(f,'z',timeidx=tindex)[:,:,:].values
+    z = np.average(np.average(z,axis=1),axis=1)
+    var = f[varStr][tindex,:,:,:]
+    var = np.average(np.average(var,axis=1),axis=1)
+    return var
+
+def get_wrf_PBLH_domain(f):
+    '''Get PBLH
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    pblh_ts: np.array
+        Boundary layer height based on last ql point
+    '''
+    pblh_ts = []
+    ts = UCSD_WRF_timestamps2array(f)
+    for i in range(0,len(ts)):
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        z = np.average(np.average(z,axis=1),axis=1)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        if z[np.nonzero(ql)[0][-1]]<3000: #sanity checks to avoid non-BL clouds
+            pblh = z[np.nonzero(ql)[0][-1]]
+        elif z[np.nonzero(ql)[0][-2]]<3000:
+            pblh = z[np.nonzero(ql)[0][-2]] #hack it to the level below
+        else:
+            pblh = np.nan
+#         pblh = f['PBLH'][i,:,:]
+        pblh_ts.append(pblh)
+    pblh_ts = np.array(pblh_ts)
+    dt = (ts[1]-ts[0]).seconds
+    t = np.arange(0,dt*len(ts),dt)
+    pblh_ts = pd.DataFrame(pblh_ts,index=t,columns=['PBLH'])
+    return pblh_ts
+
+def get_qt_domain_avg(f):
+    '''Get total water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    qt_ts = []
+    ts = UCSD_WRF_timestamps2array(f)
+    for i in range(0,len(ts),4):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        qv = f['QVAPOR'][i,:,:,:]
+        qv = np.average(np.average(qv,axis=1),axis=1)
+        qr = f['QRAIN'][i,:,:,:]
+        qr = np.average(np.average(qr,axis=1),axis=1)
+        qt_ts.append(ql+qv+qr)
+    qt_ts = np.array(qt_ts)
+    qt = pd.DataFrame(qt_ts[0,:],index=z,columns=['qt_hr0'])
+    for i in range(1,qt_ts.shape[0]):
+        qt['qt_hr'+str(i)] = qt_ts[i,:]
+    return qt
+
+def get_qt_domain_avg_time_avg(f,tstart,tend):
+    '''Get total water mixing ratio
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    theta_l: np.array
+        Liquid water potential temperature
+    '''
+    qt_ts = []
+    for i in range(tstart,tend+1):
+        p = getvar(f,'pressure',timeidx=i)[:,:,:].values
+        z = getvar(f,'z',timeidx=i)[:,:,:].values
+        p = np.average(np.average(p,axis=1),axis=1)
+        z = np.average(np.average(z,axis=1),axis=1)
+        ql = f['QCLOUD'][i,:,:,:]
+        ql = np.average(np.average(ql,axis=1),axis=1)
+        qv = f['QVAPOR'][i,:,:,:]
+        qv = np.average(np.average(qv,axis=1),axis=1)
+        qr = f['QRAIN'][i,:,:,:]
+        qr = np.average(np.average(qr,axis=1),axis=1)
+        qt_ts.append(ql+qv+qr)
+    qt_ts = np.array(qt_ts)
+    qt_ts = np.average(qt_ts,axis=0)
+    qt = pd.DataFrame(qt_ts,index=z,columns=['qt'])
+    return qt
 
 def get_LWP(f,loci,locj):
     '''Get liquid water path
@@ -253,10 +637,35 @@ def get_LWP(f,loci,locj):
     LWP = []
     qcloud = f['QCLOUD']
     ts = UCSD_WRF_timestamps2array(f)
+    z = getvar(f,'z',timeidx=0)[:,loci,locj]
     for i in range(1,len(ts)):
-        z = getvar(f,'z',timeidx=i)[:,loci,locj]
         LWP.append(np.trapz(qcloud[i,:,loci,locj],z)*1.2*1000.)
     return np.array(LWP)
+
+def get_domain_avg_LWP(f):
+    '''Get liquid water path
+    Parameters
+    ----------
+    f: netCDF4.Dataset
+        opened netCDF file
+    Returns
+    -------
+    LWP: np.array
+        Liquid water path
+    '''
+    qcloud = f['QCLOUD']
+    ts = UCSD_WRF_timestamps2array(f)
+#    ts = ts[range(1,len(ts),4)]
+    LWP = np.zeros((len(ts),qcloud.shape[2],qcloud.shape[3]))
+    z = getvar(f,'z',timeidx=0)
+    for i in range(len(ts)):
+        print i
+        for loci in range(qcloud.shape[2]):
+            for locj in range(qcloud.shape[3]):
+                LWP[i,loci,locj] = np.trapz(qcloud[i,:,loci,locj],z[:,loci,locj])*1.2*1000.
+    LWP = np.average(np.average(LWP,axis=1),axis=1)
+    return LWP
+
 
 def get_cloud_top_base(f,loci,locj):
     '''Get cloud top and cloud base height
@@ -342,7 +751,19 @@ def get_IBH(tc,z):
             index = np.where(np.diff(tc[:,i,j])>0)[0][0]
             IBH[i,j] = z[index,i,j]
     return IBH
-    
+
+def get_qlTop_zi(f,tindex):
+    '''Get qlTop height
+    '''
+    z = getvar(f,'z')[:,0,0].values
+    ql = get_var_domain_avg_at_tindex(f,'QCLOUD',tindex)
+    for i in range(len(ql)):
+        if (ql[i]>0) and (z[i]<2000):
+            zi = z[i]
+    if ql.max()==0:
+        zi = f['PBLH'][tindex,0,0]
+    return zi
+ 
 def find_nearest(lat,lon,value,value2):
     """Find the nearest indicies for a given location.
     
@@ -646,3 +1067,91 @@ def UTC_to_PPT(wrf):
     new_wrf = pd.DataFrame(wrf.as_matrix(),index=ts_pacific,columns=wrf.columns)
     new_wrf = new_wrf.resample('H').first()
     return new_wrf
+
+def load_LES_data(ps,ts,pf_hr):
+    '''
+    Parameters
+    ----------
+    ps: str
+        LES ps file path
+    ts: str
+        LES ts file path
+    pf_hr: int 
+        vertical profile hour
+    Returns
+    -------
+    LES_z, LES_thetaL, LES_qt, LES_ql: np.array(1d)
+        LES z grid, thetaL, qt, ql at input hour (pf_hr)
+    LWP, BL_thetaL, BL_qt: pd.Dataframe
+        Time series of LWP, BL-avg thetaL, BL-avg qt, PBL height
+    '''
+    LES = Dataset(ps)
+    LES_z = LES['zm'][:]
+    LES_time = LES['time'][:]
+    index = np.where(LES_time == 3600*pf_hr)[0][0]
+    LES_thetaL = LES['t'][index,:]
+    LES_qt = LES['q'][index,:]
+    LES_ql = LES['l'][index,:]
+    LES_ts = Dataset(ts)
+    LWP = pd.DataFrame(LES_ts['lwp_bar'][:],index=LES_ts['time'][:]/3600.,columns=['LWP'])
+    ts_t = LES_ts['time'][:]
+    ts_tdiff = ts_t[1] - ts_t[0]    
+    ps_t = LES['time'][:]
+    ps_tdiff = ps_t[1] - ps_t[0]
+    LES_PBLH = LES_ts['zi2_bar'][0::int(ps_tdiff/ts_tdiff)] #matched to ps time stamp
+    LES_PBLH[0] = LES_PBLH[1]
+    LES_BL_thetaL = np.zeros_like(LES_PBLH)
+    LES_BL_qt = np.zeros_like(LES_PBLH)
+    for i in range(len(LES_BL_thetaL)): 
+        BL_idx = np.where(LES_z<=LES_PBLH[i])[0][-1]
+        LES_BL_thetaL[i] = LES['t'][i,0:BL_idx+1].mean()
+        LES_BL_qt[i] = LES['q'][i,0:BL_idx+1].mean()
+    BL_thetaL = pd.DataFrame(LES_BL_thetaL,index=LES_time/3600.,columns=['BL_thetaL'])
+    BL_qt = pd.DataFrame(LES_BL_qt,index=LES_time/3600.,columns=['BL_qt'])
+    PBLH = pd.DataFrame(LES_PBLH,index=LES_time/3600.,columns=['PBLH'])
+    return LES_z, LES_thetaL, LES_qt, LES_ql, LWP, BL_thetaL, BL_qt, PBLH
+
+def get_ED_term_SCM(f,var,t_index):
+    ''' Make sure K is in staggered grid while scalar in destaggered
+    This is for Single-Column-Model mode - no need for domain average
+    '''
+    rho = 1.28
+    Lv = 2.5e6
+    cpAir = 1005.
+    K = f['EXCH_H'][t_index,:,0,0]
+    if var == 'thetaL':
+        data = get_thetaL_at_time_index(f,t_index,0,0,False)
+        sfc_value = f['HFX'][t_index,0,0]/rho/cpAir
+    elif var == 'qt':
+        data = get_qt_at_time_index(f,t_index,0,0,False)
+        sfc_value = f['LH'][t_index,0,0]/rho/Lv
+    data = np.array(data)
+    z = getvar(f,'z')[:,0,0].values
+    ED = np.zeros(len(data)+1)
+    for i in range(len(z)-1):
+        if i == 0: # from the surface model
+            ED[i] = sfc_value # sfc_value, don't read sfc value
+        else: # K is on the staggered grid, scalar is on the mass-grid
+            ED[i] = - K[i]*(data[i]-data[i-1])/(z[i]-z[i-1])
+    ED = 0.5*ED[0:-1] + 0.5*ED[1:]
+    return ED, K, data
+
+def get_ED_term_SCM_time_avg(f,var,t_start,t_end):
+    if t_end > f['HFX'].shape[0]:
+        t_end = f['HFX'].shape[0]
+    ED_final = []
+    for i in range(t_start,t_end,4):
+        ED, K, data = get_ED_term_SCM(f,var,i)
+        ED_final.append(ED)
+    ED_final = np.array(ED_final)
+    ED_final = np.average(ED_final,axis=0)
+    return ED_final
+
+def get_scalar_time_avg(f,var,t_index_start,t_index_end,loci,locj):
+    '''Time average input scalar, skip over if 0. This is specifically for EDMF fields.
+    '''
+    current = f[var][t_index_start:t_index_end,:,loci,locj]
+    current[current == 0] = np.nan
+    current = np.nanmean(current,axis=0)
+    current[np.isnan(current)] = 0.
+    return current

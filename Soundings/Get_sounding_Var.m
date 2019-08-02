@@ -55,7 +55,11 @@ for i=1:length(ListofVar)
 end                 
 
 %% Check that there aren't duplicated values in the BL
-p=varargout{1}; tp=varargout{3};
+p=varargout{1};
+tp=varargout{3};
+z=varargout{2};
+varargout{12}=z(p==1000); %geopotential height
+varargout{13}=z(p==500); %geopotential height
 
 idelete=[];
 for istar=1:length(tp)-1 %go through all levels

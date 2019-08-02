@@ -1,4 +1,4 @@
-function [DT_max,numofInv,varargout]=TMP_Inversion_Strength_Cal_V1(T,hght,hght_sfc)
+function [DT_max,numofInv,varargout]=TMP_Inversion_Strength_Cal_V2(T,hght,hght_sfc)
 % [DT_max,numofInv,varargout]=TMP_Inversion_Strength_Cal_V1(T,hght,hght_sfc)
 % The input includes:
 % T: temperature (unit: K) of 1 dimension (z)

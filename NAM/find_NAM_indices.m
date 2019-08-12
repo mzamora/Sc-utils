@@ -16,7 +16,7 @@ for i=1:n
             delta=abs(lat(i)-NAM_lat(ii,jj))^2+abs(lon(i)-NAM_lon(ii,jj))^2;
             
             if delta<deltamin
-                deltamin1=delta1;
+                deltamin=delta;
                 istar(i)=ii; %y
                 jstar(i)=jj; %x
             end

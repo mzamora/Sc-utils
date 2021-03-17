@@ -32,6 +32,24 @@ set(HDF5_LIB_2         "/usr/lib/x86_64-linux-gnu/libhdf5.a")
 set(SZIP_LIB           "")
 set(LIBS ${NETCDF_LIB_1} ${NETCDF_LIB_2} ${HDF5_LIB_1} ${HDF5_LIB_2} ${SZIP_LIB} -ldl m z curl)
 ```
+Note that the previous config worked in our ubuntu 18.04(?) servers. My current config working on ubuntu 20.04 on my laptop uses mpifort from mpich, because the one from openmpi keeps throwing me an error (although it works ok with other software), and hdf5 libraries switched to serial versions. As always, be careful with paths:
+```
+set(CMAKE_Fortran_COMPILER "gfortran")
+set(Fortran_COMPILER_WRAPPER "/usr/bin/mpifort.mpich")
+
+set(USER_Fortran_FLAGS "-fbacktrace -finit-real=nan -fdefault-real-8  -fno-f2c -ffree-line-length-none")
+set(USER_Fortran_FLAGS_RELEASE "-funroll-all-loops -O3 -march=native -mtune=native")
+set(USER_Fortran_FLAGS_DEBUG "-W -Wall -Wuninitialized -fcheck=all -fbacktrace -O0 -g -ffpe-trap=invalid,zero,overflow")
+
+set(NETCDF_INCLUDE_DIR "/usr/include")
+set(NETCDF_LIB_1       "/usr/lib/x86_64-linux-gnu/libnetcdff.a")
+set(NETCDF_LIB_2       "/usr/lib/x86_64-linux-gnu/libnetcdf.so")
+set(HDF5_LIB_1         "/usr/lib/x86_64-linux-gnu/libhdf5_serial_hl.a")
+set(HDF5_LIB_2         "/usr/lib/x86_64-linux-gnu/libhdf5_serial.a")
+set(SZIP_LIB           "")
+set(LIBS ${NETCDF_LIB_1} ${NETCDF_LIB_2} ${HDF5_LIB_1} ${HDF5_LIB_2} ${SZIP_LIB} m z curl)
+```
+
 
 Make a build directory and compile 
 ```
@@ -56,14 +74,19 @@ ln -s ../bin/datafiles/ .
 Compile  and link programs for stitching
 ```
 cd ../misc/synthesis/
-gfortran reduceps.f90 -I /usr/include/ -lnetcdff -lnetcdf -lcurl -lz -lhdf5_fortran -lhdf5_hl -lhdf5
-mv a.out reduceps
-gfortran reducets.f90 -I /usr/include/ -lnetcdff -lnetcdf -lcurl -lz -lhdf5_fortran -lhdf5_hl -lhdf5
-mv a.out reducets
+gfortran reduceps.f90 -I /usr/include/ -lnetcdff -lnetcdf -lcurl -lz -lhdf5_fortran -lhdf5_hl -lhdf5 -o reduceps
+gfortran reducets.f90 -I /usr/include/ -lnetcdff -lnetcdf -lcurl -lz -lhdf5_fortran -lhdf5_hl -lhdf5 -o reducets
 cd ../../run/
 ln -s ../misc/synthesis/reducets
 ln -s ../misc/synthesis/reduceps
 ```
+Similarly to the config file, if you have issues in newer systems, try these:
+```
+gfortran reduceps.f90 -I /usr/include/ -lnetcdff -lnetcdf -lcurl -lz -lhdf5_serial_hl -lhdf5_serial -o reduceps
+gfortran reducets.f90 -I /usr/include/ -lnetcdff -lnetcdf -lcurl -lz -lhdf5_serial_hl -lhdf5_serial -o reducets
+
+```
+
 
 # Run DYCOMS-RF01
 (Currently in the run folder) Copy the NAMELIST
@@ -79,7 +102,7 @@ mv a.out bstate
 mv sound_in ../../run/
 ```
 
-Everything is ready to run stuff 
+Everything is ready to run stuff. Make sure that your mpiexec or mpirun are consistent with what you put in the config file (openMPI or mpich choice)
 `mpiexec -n 8 ./uclales > log`
 
 Stitch the files

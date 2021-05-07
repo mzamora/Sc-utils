@@ -1,6 +1,6 @@
 %This function is used to preprocess Sounding data.
 
-%Remeber to do human checks to improve the quality of data because there
+%Remember to do human checks to improve the quality of data because there
 %are always missing data.
 
 % addpath(genpath('/home/xiaohui/WRF/m_programe_Linux'));
@@ -16,15 +16,27 @@ dirName=pwd; %'/mnt/lab_48tb1/users/xiaohui/database/Sounding';
 % elev_station=[128];
 % num_station=[72293];
 
-stationlist={'YPPH'}; %{'NKX';'VBG';'OAK'};
-lat_station=[-31.93]; %[32.85;34.75;37.73];
-lon_station=[115.96]; %[-117.11;-120.56;-122.21];
-elev_station=[20]; %[128;121;3.0];
-num_station=[94610]; %[72293;72393;72493];
+% stationlist={'YPPH'}; %{'NKX';'VBG';'OAK'};
+% lat_station=[-31.93]; %[32.85;34.75;37.73];
+% lon_station=[115.96]; %[-117.11;-120.56;-122.21];
+% elev_station=[20]; %[128;121;3.0];
+% num_station=[94610]; %[72293;72393;72493];
+
+%stationlist={'LMN'};
+%lat_station=[36.62];
+%lon_station=[-97.48];
+%elev_station=[317];
+%num_station=[74646];
+
+stationlist={'SCFA'};
+lat_station=[-23.43];
+lon_station=[-70.45];
+elev_station=[115];
+num_station=[85442];
 
 %Set time.
-for yy=2014:2017
-    for mm=1:12
+for yy=2021 %:2021
+    for mm=1:4
         Year=num2str(yy); %{'2014';'2014'};
         Month=num2str(mm,'%02i'); %{'01';'02'};
 
@@ -123,6 +135,10 @@ for yy=2014:2017
                         time=datenum([temp(47:48),'-',temp(50:52),'-',temp(54:57)])+datenum(0,0,0,str2num(temp(43:44)),0,0);
                     elseif strcmp(stationlist{i},'YPPH')
                         time=datenum([temp(50:51),'-',temp(53:55),'-',temp(57:60)])+datenum(0,0,0,str2num(temp(46:47)),0,0);
+                    elseif strcmp(stationlist{i},'LMN')
+                        time=datenum([temp(50:51),'-',temp(53:55),'-',temp(57:60)])+datenum(0,0,0,str2num(temp(46:47)),0,0);
+                    elseif strcmp(stationlist{i},'SCFA')
+                        time=datenum([temp(48:49),'-',temp(51:53),'-',temp(55:58)])+datenum(0,0,0,str2num(temp(44:45)),0,0);
                     end
 
                     %Write the date.            
